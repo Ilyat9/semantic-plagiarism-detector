@@ -1,0 +1,43 @@
+[project]
+name = "plagcheck"
+version = "0.1.0"
+description = "Semantic Plagiarism & Paraphrase Detection System"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "sentence-transformers>=3.0",
+    "scikit-learn>=1.5",
+    "spacy>=3.7",
+    "ddgs>=6.0",
+    "trafilatura>=1.12",
+    "httpx>=0.27",
+    "python-docx>=1.1",
+    "pypdf>=4.3",
+    "weasyprint>=62.0",
+    "streamlit>=1.37",
+    "datasets>=2.20",
+    "scipy>=1.14",
+    "numpy>=1.26",
+    "sqlalchemy>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: тесты с загрузкой ML-моделей (медленные)"]

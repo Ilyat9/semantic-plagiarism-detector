@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Результат проверки</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .frag { border-left: 4px solid #6c757d; background: #f8f9fa; }
+    .frag.verbatim { border-color: #dc3545; }
+    .frag.paraphrase { border-color: #fd7e14; }
+  </style>
+</head>
+<body>
+<div class="container py-4" style="max-width: 960px;">
+  <a href="/" class="btn btn-outline-secondary btn-sm mb-3">&larr; Новая проверка</a>
+  <h1 class="h4 mb-1">Результат: {{ report.filename }}</h1>
+  <p class="text-muted small">
+    Слов: {{ report.n_words }} · Чанков: {{ report.n_chunks }} ·
+    Поисковых фраз: {{ report.queries|length }} ·
+    Недоступных источников: {{ report.comparison.unreachable_sources|length }}
+  </p>
+
+  <div class="card mb-4">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div>
+        <div class="display-5 fw-bold">{{ report.comparison.similarity_percent }}%</div>
+        <div class="text-muted small">итоговая схожесть (verbatim × 1.0 + paraphrase × 0.5)</div>
+      </div>
+      <a class="btn btn-primary" href="/report/{{ report_id }}.pdf">Скачать PDF-отчёт</a>
+    </div>
+  </div>
+
+  {% set flagged = report.comparison.fragments | selectattr('verdict.value', 'ne', 'original') | list %}
+  <h2 class="h5">Совпадающие фрагменты ({{ flagged|length }})</h2>
+  {% if not flagged %}<p class="text-success">Совпадений не найдено — документ выглядит оригинальным.</p>{% endif %}
+  {% for f in flagged %}
+  <div class="frag {{ f.verdict.value }} p-3 mb-3">
+    <span class="badge {{ 'bg-danger' if f.verdict.value == 'verbatim' else 'bg-warning text-dark' }}">
+      {{ f.verdict.value }}
+    </span>
+    <span class="text-muted small">lex {{ '%.2f' % f.lexical }} · sem {{ '%.2f' % f.semantic }}</span>
+    <p class="mb-1 mt-2">{{ f.chunk_text }}</p>
+    {% if f.source_url %}
+    <div class="small">Источник: <a href="{{ f.source_url }}" target="_blank" rel="noopener">{{ f.source_url }}</a></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if report.comparison.unreachable_sources %}
+  <h2 class="h5 mt-4">Недоступные источники ({{ report.comparison.unreachable_sources|length }})</h2>
+  <ul class="small text-muted">
+    {% for s in report.comparison.unreachable_sources %}<li>{{ s.url }} — {{ s.error }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <h2 class="h5 mt-4">Поисковые фразы</h2>
+  <ol class="small text-muted">
+    {% for q in report.queries %}<li>{{ q }}</li>{% endfor %}
+  </ol>
+</div>
+</body>
+</html>

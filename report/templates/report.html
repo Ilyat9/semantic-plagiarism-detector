@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #222; line-height: 1.45; }
+  h1 { font-size: 20pt; margin-bottom: 6pt; }
+  h2 { font-size: 13pt; margin-top: 18pt; border-bottom: 1px solid #ddd; padding-bottom: 4pt; }
+  .cover { text-align: center; padding: 80px 40px; page-break-after: always; }
+  .cover h1 { font-size: 26pt; color: #1a5276; margin-bottom: 20pt; }
+  .cover .meta { font-size: 12pt; color: #555; margin: 8pt 0; }
+  .cover .score-big { font-size: 56pt; font-weight: bold; color: #1a5276; margin: 24pt 0; }
+  .score { font-size: 28pt; font-weight: bold; }
+  .legend { display: flex; gap: 16pt; margin: 12pt 0; font-size: 10pt; }
+  .legend-item { display: flex; align-items: center; gap: 4pt; }
+  .dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+  .dot.verbatim { background: #ffebee; border: 1px solid #c0392b; }
+  .dot.paraphrase { background: #fff8e1; border: 1px solid #e67e22; }
+  .dot.original { background: #e8f5e9; border: 1px solid #27ae60; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 8pt; }
+  td, th { border: 1px solid #ccc; padding: 5px 7px; font-size: 9.5pt; vertical-align: top; }
+  th { background: #f2f2f2; }
+
+  .frag { margin-bottom: 12pt; padding: 10pt; border-left: 5px solid #999; border-radius: 0 4px 4px 0; }
+  .frag.verbatim { background: #ffebee; border-color: #c0392b; }
+  .frag.paraphrase { background: #fff8e1; border-color: #e67e22; }
+  .frag.original { background: #e8f5e9; border-color: #27ae60; }
+  .frag b { text-transform: uppercase; font-size: 9pt; letter-spacing: 0.5px; }
+
+  .src { font-size: 9pt; color: #555; }
+  .warn { color: #7f8c8d; font-size: 9.5pt; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- Cover page -->
+<div class="cover">
+  <h1>Plagiarism Check Report</h1>
+  <div class="meta"><b>File:</b> {{ report.filename }}</div>
+  <div class="meta"><b>Date:</b> {{ report.created_at[:10] if report.created_at else 'N/A' }}</div>
+  <div class="meta"><b>Words:</b> {{ report.n_words }} &nbsp; <b>Chunks:</b> {{ report.n_chunks }}</div>
+  <div class="score-big">{{ report.comparison.similarity_percent }}%</div>
+  <div class="meta">similarity score</div>
+  <div class="legend">
+    <div class="legend-item"><span class="dot verbatim"></span> verbatim</div>
+    <div class="legend-item"><span class="dot paraphrase"></span> paraphrase</div>
+    <div class="legend-item"><span class="dot original"></span> original</div>
+  </div>
+</div>
+
+<!-- Flagged fragments -->
+<h2>Flagged Fragments</h2>
+{% set flagged = report.comparison.fragments | selectattr('verdict.value', 'ne', 'original') | list %}
+{% if not flagged %}<p>No matching fragments found.</p>{% endif %}
+{% for f in flagged %}
+<div class="frag {{ f.verdict.value }}">
+  <b class="{{ f.verdict.value }}">{{ f.verdict.value }}</b>
+  <span style="color:#666;font-size:9pt;">(lex {{ '%.2f' % f.lexical }}, sem {{ '%.2f' % f.semantic }})</span>
+  <p>{{ f.chunk_text }}</p>
+  {% if f.source_url %}<p class="src">Source: {{ f.source_url }}</p>{% endif %}
+  {% if f.source_excerpt %}<p class="src" style="font-style:italic;">Excerpt: {{ f.source_excerpt[:300] }}...</p>{% endif %}
+</div>
+{% endfor %}
+
+<!-- All fragments -->
+<h2>All Fragments</h2>
+<table>
+  <tr><th>#</th><th>Verdict</th><th>Text</th><th>Source</th></tr>
+  {% for f in report.comparison.fragments %}
+  <tr class="{{ f.verdict.value }}">
+    <td>{{ f.chunk_index }}</td>
+    <td><b class="{{ f.verdict.value }}">{{ f.verdict.value }}</b></td>
+    <td>{{ f.chunk_text[:200] }}</td>
+    <td class="src">{{ f.source_url or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if report.comparison.unreachable_sources %}
+<h2>Unreachable Sources</h2>
+<ul>{% for s in report.comparison.unreachable_sources %}<li class="warn">{{ s.url }} — {{ s.error }}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>Search Phrases</h2>
+<ol>{% for q in report.queries %}<li class="src">{{ q }}</li>{% endfor %}</ol>
+
+</body>
+</html>

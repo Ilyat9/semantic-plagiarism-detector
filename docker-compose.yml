@@ -1,0 +1,33 @@
+name: plagcheck
+
+services:
+  api:
+    build: .
+    image: plagcheck:latest
+    ports:
+      - "8000:8000"
+    environment:
+      PLAGCHECK_SEARCH_BACKEND: ${PLAGCHECK_SEARCH_BACKEND:-auto}
+      PLAGCHECK_SEARXNG_URL: ${PLAGCHECK_SEARXNG_URL:-http://host.docker.internal:8080}
+    volumes:
+      - plagcheck-cache:/app/data
+      - plagcheck-db:/app/data
+
+  demo:
+    build: .
+    image: plagcheck:latest
+    command: [".venv/bin/streamlit", "run", "demo/app.py",
+              "--server.address", "0.0.0.0", "--server.port", "8501",
+              "--server.headless", "true"]
+    ports:
+      - "8501:8501"
+    environment:
+      PLAGCHECK_SEARCH_BACKEND: ${PLAGCHECK_SEARCH_BACKEND:-auto}
+      PLAGCHECK_SEARXNG_URL: ${PLAGCHECK_SEARXNG_URL:-http://host.docker.internal:8080}
+    volumes:
+      - plagcheck-cache:/app/data
+      - plagcheck-db:/app/data
+
+volumes:
+  plagcheck-cache:
+  plagcheck-db:

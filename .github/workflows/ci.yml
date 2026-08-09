@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.x"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Lint with ruff
+        run: uv run ruff check .
+
+      - name: Format check with ruff
+        run: uv run ruff format --check .
+
+      - name: Test with pytest (fast)
+        run: uv run pytest -m "not slow" -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build . -t plagcheck:test
+
+      - name: Test Docker image runs
+        run: |
+          docker run -d --name plagcheck-test -p 8000:8000 plagcheck:test
+          sleep 5
+          curl -f http://localhost:8000/ || exit 1
+          docker stop plagcheck-test

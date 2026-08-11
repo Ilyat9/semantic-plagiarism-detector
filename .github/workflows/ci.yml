@@ -46,6 +46,17 @@ jobs:
       - name: Test Docker image runs
         run: |
           docker run -d --name plagcheck-test -p 8000:8000 plagcheck:test
-          sleep 5
-          curl -f http://localhost:8000/ || exit 1
+          # ждём старта uvicorn (на CI-раннере первый запуск занимает больше 5 с)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ > /dev/null; then
+              echo "Service is up after ~$((i * 2))s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Service failed to start, container logs:"
+              docker logs plagcheck-test
+              exit 1
+            fi
+            sleep 2
+          done
           docker stop plagcheck-test

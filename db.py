@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine, func
-from sqlalchemy.orm import DeclarativeBase, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 DB_PATH = Path("data/reports.db")
 
@@ -22,15 +22,15 @@ class Base(DeclarativeBase):
 class ReportModel(Base):
     __tablename__ = "reports"
 
-    id = mapped_column(primary_key=True)
-    report_uuid = mapped_column(unique=True, index=True)
-    filename = mapped_column()
-    created_at = mapped_column(default=datetime.utcnow)
-    n_words = mapped_column(default=0)
-    n_chunks = mapped_column(default=0)
-    queries_json = mapped_column(default="[]")
-    comparison_json = mapped_column(default="null")
-    doc_text = mapped_column(default="")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    report_uuid: Mapped[str] = mapped_column(unique=True, index=True)
+    filename: Mapped[str] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    n_words: Mapped[int] = mapped_column(default=0)
+    n_chunks: Mapped[int] = mapped_column(default=0)
+    queries_json: Mapped[str] = mapped_column(default="[]")
+    comparison_json: Mapped[str] = mapped_column(default="null")
+    doc_text: Mapped[str] = mapped_column(default="")
 
 
 def get_engine():

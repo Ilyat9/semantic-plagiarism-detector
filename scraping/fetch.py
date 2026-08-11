@@ -42,9 +42,7 @@ def fetch_page(url: str) -> FetchedPage:
 def _fetch_uncached(url: str) -> FetchedPage:
     headers = {"User-Agent": config.USER_AGENT}
     try:
-        resp = httpx.get(
-            url, headers=headers, timeout=config.FETCH_TIMEOUT, follow_redirects=True
-        )
+        resp = httpx.get(url, headers=headers, timeout=config.FETCH_TIMEOUT, follow_redirects=True)
         if resp.status_code != 200:
             return FetchedPage(url=url, error=f"HTTP {resp.status_code}")
         text = trafilatura.extract(resp.text, include_comments=False, include_tables=False)

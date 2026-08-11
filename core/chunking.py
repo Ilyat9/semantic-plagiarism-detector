@@ -11,6 +11,7 @@ def _get_nlp(lang: str = "en"):
     """Ленивая загрузка spaCy sentencizer (без тяжёлого pipeline)."""
     if lang not in _nlp_cache:
         import spacy
+
         _nlp_cache[lang] = spacy.blank(lang)
         _nlp_cache[lang].add_pipe("sentencizer")
     return _nlp_cache[lang]

@@ -23,6 +23,7 @@ def get_bi_encoder_name(lang: str | None = None, text: str | None = None) -> str
     if lang == "ru":
         return BI_ENCODER_MULTILINGUAL
     from core.similarity import BI_ENCODER_MINILM
+
     return BI_ENCODER_MINILM
 
 
@@ -33,4 +34,5 @@ def get_cross_encoder_name(lang: str | None = None, text: str | None = None) -> 
     if lang == "ru":
         return CROSS_ENCODER_MULTILINGUAL
     from core.similarity import DEFAULT_CROSS_ENCODER
+
     return DEFAULT_CROSS_ENCODER

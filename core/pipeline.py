@@ -96,7 +96,7 @@ def compare_document(
             source_chunk_urls.append(src.url)
 
     # Pre-filter: near-duplicate detection (быстрый verbatim)
-    source_chunks_for_matcher = list(zip(source_chunk_urls, source_chunk_texts))
+    source_chunks_for_matcher = list(zip(source_chunk_urls, source_chunk_texts, strict=True))
     verbatim_flags: list[bool] = []
     verbatim_best_urls: list[str | None] = []
     for chunk in doc_chunks:

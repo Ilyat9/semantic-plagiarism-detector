@@ -124,8 +124,8 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     (
         "antibiotics",
         "Antibiotics are medications that destroy or slow down bacterial growth. "
-        "Penicillin, discovered by Alexander Fleming in 1928, was the first widely used antibiotic. "
-        "Overuse has led to resistant strains that threaten modern medicine.",
+        "Penicillin, discovered by Alexander Fleming in 1928, was the first widely used "
+        "antibiotic. Overuse has led to resistant strains that threaten modern medicine.",
         "These drugs kill bacteria or inhibit their reproduction. "
         "Fleming's 1928 discovery of penicillin revolutionized infection treatment. "
         "However, excessive prescription has created dangerous drug-resistant bacteria.",
@@ -140,7 +140,8 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     (
         "quantum_computing",
         "Quantum computers use qubits that can exist in superposition of states. "
-        "This allows them to perform certain calculations exponentially faster than classical computers. "
+        "This allows them to perform certain calculations exponentially faster than classical "
+        "computers. "
         "IBM and Google have demonstrated quantum supremacy on specific problems.",
         "Unlike classical bits, qubits leverage superposition for parallel computation. "
         "Some algorithms run exponentially faster on quantum hardware. "
@@ -226,7 +227,8 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     (
         "pythagoras",
         "The Pythagorean theorem states that in a right triangle, a² + b² = c². "
-        "This fundamental relation was known to ancient Babylonians but proved by Greek mathematicians. "
+        "This fundamental relation was known to ancient Babylonians but proved by Greek "
+        "mathematicians. "
         "It underlies trigonometry and has countless practical applications.",
         "For right-angled triangles, the square of the hypotenuse equals the sum of squared legs. "
         "Ancient Mesopotamians knew this relationship; Greeks later provided formal proofs. "
@@ -236,10 +238,12 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
         "existentialism",
         "Existentialist philosophy emphasizes individual freedom, choice, and responsibility. "
         "Sartre argued that existence precedes essence — humans define themselves through actions. "
-        "Absurdism, explored by Camus, confronts the tension between human search for meaning and silent universe.",
+        "Absurdism, explored by Camus, confronts the tension between human search for meaning and "
+        "silent universe.",
         "This school of thought centers on personal autonomy and accountability. "
         "Sartre believed people first exist, then create their own nature through deeds. "
-        "Camus examined the conflict between humanity's quest for purpose and an indifferent cosmos.",
+        "Camus examined the conflict between humanity's quest for purpose and an indifferent "
+        "cosmos.",
     ),
     (
         "social_media",
@@ -251,8 +255,9 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     (
         "human_evolution",
         "Modern humans evolved in Africa approximately 300,000 years ago. "
-        "Homo sapiens coexisted with Neanderthals and Denisovans before these cousins went extinct. "
-        "Genetic analysis reveals that non-African populations carry small amounts of Neanderthal DNA.",
+        "Homo sapiens coexisted with Neanderthals and Denisovans before these cousins "
+        "went extinct. Genetic analysis reveals that non-African populations carry small "
+        "amounts of Neanderthal DNA.",
         "Our species emerged in Africa roughly three hundred millennia ago. "
         "Early Homo sapiens lived alongside other human species that eventually died out. "
         "DNA studies show that people outside Africa inherited traces of Neanderthal ancestry.",
@@ -260,17 +265,21 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     (
         "linguistics",
         "Noam Chomsky proposed that humans possess an innate universal grammar. "
-        "This theory suggests children can learn any language because they are born with linguistic structures. "
-        "Critics point to the vast diversity of world languages as evidence against universal patterns.",
+        "This theory suggests children can learn any language because they are born with "
+        "linguistic structures. "
+        "Critics point to the vast diversity of world languages as evidence against universal "
+        "patterns.",
         "Chomsky argued that language acquisition relies on built-in mental frameworks. "
-        "According to this view, infants can master any tongue thanks to inherent grammatical knowledge. "
+        "According to this view, infants can master any tongue thanks to inherent grammatical "
+        "knowledge. "
         "Opponents cite extreme variation among global languages to challenge this hypothesis.",
     ),
     (
         "pompeii",
         "The Roman city of Pompeii was buried by the eruption of Mount Vesuvius in 79 CE. "
         "Ash preserved buildings, artifacts, and bodies for nearly two millennia. "
-        "Archaeological excavations since the 18th century have revealed daily life in ancient Rome.",
+        "Archaeological excavations since the 18th century have revealed daily life in ancient "
+        "Rome.",
         "Vesuvius destroyed this Roman settlement in 79 AD with volcanic ash. "
         "The debris sealed structures, objects, and human remains for almost two thousand years. "
         "Digging since the 1700s has uncovered remarkably detailed glimpses of antiquity.",
@@ -290,8 +299,8 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
         "These ecosystems are built by colonies of tiny animals called coral polyps. "
         "Rising ocean temperatures cause coral bleaching, threatening these biodiversity hotspots.",
         "A quarter of sea creatures depend on reef ecosystems for survival. "
-        "Microscopic polyp colonies construct these elaborate underwater structures over centuries. "
-        "Warming seas trigger bleaching events that endanger these marine sanctuaries.",
+        "Microscopic polyp colonies construct these elaborate underwater structures over "
+        "centuries. Warming seas trigger bleaching events that endanger these marine sanctuaries.",
     ),
     (
         "thunderstorms",
@@ -299,7 +308,8 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
         "Updrafts and downdrafts create electrical charge separation, leading to lightning. "
         "Severe storms can produce hail, tornadoes, and flash flooding.",
         "These weather systems develop as heated humid air ascends into colder upper layers. "
-        "Rising and falling air masses generate static electricity that discharges as lightning bolts. "
+        "Rising and falling air masses generate static electricity that discharges as lightning "
+        "bolts. "
         "Extreme convective events may spawn hailstones, twisters, and sudden inundations.",
     ),
     (
@@ -313,10 +323,12 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
         "ferns",
         "Ferns are vascular plants that reproduce through spores rather than seeds. "
         "They dominated Earth's forests during the Carboniferous period. "
-        "Today, ferns thrive in moist, shaded environments across all continents except Antarctica.",
+        "Today, ferns thrive in moist, shaded environments across all continents except "
+        "Antarctica.",
         "These plants lack flowers and seeds, multiplying instead through airborne spores. "
         "Three hundred million years ago, vast forests of these organisms covered the planet. "
-        "Modern varieties prefer damp, dark habitats and grow on every landmass except the frozen south.",
+        "Modern varieties prefer damp, dark habitats and grow on every landmass except the frozen "
+        "south.",
     ),
 ]
 
@@ -426,16 +438,25 @@ def main() -> None:
     rows: list[dict] = []
 
     for text_id, base, manual in BASE_TEXTS:
-        rows.append({"id": f"{text_id}-verbatim", "text_a": base, "text_b": base,
-                     "label": "verbatim"})
+        rows.append(
+            {"id": f"{text_id}-verbatim", "text_a": base, "text_b": base, "label": "verbatim"}
+        )
         paraphrase = manual if manual else llm_paraphrase(base)
         origin = "manual" if manual else f"llm:{OLLAMA_MODEL}"
-        rows.append({"id": f"{text_id}-paraphrase", "text_a": base, "text_b": paraphrase,
-                     "label": "paraphrase", "origin": origin})
+        rows.append(
+            {
+                "id": f"{text_id}-paraphrase",
+                "text_a": base,
+                "text_b": paraphrase,
+                "label": "paraphrase",
+                "origin": origin,
+            }
+        )
 
     for (base_id, base, _), (unrel_id, unrel) in zip(BASE_TEXTS, UNRELATED * 3, strict=False):
-        rows.append({"id": f"{base_id}-vs-{unrel_id}", "text_a": base, "text_b": unrel,
-                     "label": "original"})
+        rows.append(
+            {"id": f"{base_id}-vs-{unrel_id}", "text_a": base, "text_b": unrel, "label": "original"}
+        )
 
     with OUT_PATH.open("w", encoding="utf-8") as f:
         for row in rows:

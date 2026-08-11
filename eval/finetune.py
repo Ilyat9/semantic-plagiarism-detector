@@ -15,8 +15,8 @@ from datasets import load_dataset
 from sentence_transformers import CrossEncoder, InputExample
 from torch.utils.data import DataLoader
 
-from eval.run import eval_binary, eval_stsb, measure_latency
 from eval.datasets import load_stsb
+from eval.run import eval_binary, eval_stsb, measure_latency
 
 
 def load_paws_examples(split: str = "train", max_samples: int | None = None) -> list[InputExample]:
@@ -70,7 +70,6 @@ def finetune(
 def evaluate_finetuned(model_path: Path) -> dict:
     """Оценивает fine-tuned модель на PAWS test + STS-B."""
     from eval.datasets import load_paws
-    from eval.approaches import get_scorer
 
     print("\nОценка fine-tuned модели...", flush=True)
     paws_dev = load_paws("validation", limit=1000)
@@ -83,6 +82,7 @@ def evaluate_finetuned(model_path: Path) -> dict:
         raw = model.predict(pairs)
         # stsb-roberta → уже [0, 1]
         import numpy as np
+
         return np.clip(np.asarray(raw, dtype=float), 0.0, 1.0)
 
     row = {"approach": "full-ft"}
@@ -97,7 +97,9 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--samples", type=int, default=3000, help="макс примеров из PAWS train")
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--output", type=Path, default=Path("data/models/cross-encoder-paws-finetuned"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("data/models/cross-encoder-paws-finetuned")
+    )
     parser.add_argument("--evaluate", action="store_true", help="сразу оценить после обучения")
     args = parser.parse_args()
 
@@ -110,7 +112,7 @@ def main() -> None:
 
     if args.evaluate:
         row = evaluate_finetuned(model_path)
-        print(f"\nРезультаты fine-tuned модели:")
+        print("\nРезультаты fine-tuned модели:")
         for k, v in row.items():
             print(f"  {k}: {v}")
 

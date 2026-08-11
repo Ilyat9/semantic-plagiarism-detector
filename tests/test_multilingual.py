@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from core.language import detect_language, get_bi_encoder_name, get_cross_encoder_name
-from core.similarity import BiEncoderScorer, CrossEncoderScorer
+from core.language import detect_language
+from core.similarity import BiEncoderScorer
 
 RU_TEXT = (
     "Фотосинтез — процесс преобразования световой энергии в химическую. "
@@ -41,8 +41,20 @@ class TestMultilingualScoring:
 
     @pytest.mark.slow
     def test_russian_vs_english_low_score(self):
-        """Русский vs английский — низкий скор."""
+        """Русский текст vs несвязанный английский — низкий скор.
+
+        NB: cross-lingual модель специально сближает тексты с ОДИНАКОВЫМ смыслом
+        на разных языках (RU-описание фотосинтеза vs EN-описание: ~0.80).
+        Поэтому низкий скор проверяем на тематически несвязанной паре.
+        """
         scorer = BiEncoderScorer("paraphrase-multilingual-MiniLM-L12-v2")
-        pairs = [(RU_TEXT, EN_TEXT)]
-        scores = scorer.score_pairs(pairs)
+        unrelated_en = "The stock market closed higher on Tuesday amid a rally in tech shares."
+        scores = scorer.score_pairs([(RU_TEXT, unrelated_en)])
         assert scores[0] < 0.5, f"semantic score = {scores[0]:.3f}, ожидалось < 0.5"
+
+    @pytest.mark.slow
+    def test_cross_lingual_same_meaning_high_score(self):
+        """Cross-lingual пара с общим смыслом (RU vs EN о фотосинтезе) — высокий скор."""
+        scorer = BiEncoderScorer("paraphrase-multilingual-MiniLM-L12-v2")
+        scores = scorer.score_pairs([(RU_TEXT, EN_TEXT)])
+        assert scores[0] > 0.5, f"semantic score = {scores[0]:.3f}, ожидалось > 0.5"

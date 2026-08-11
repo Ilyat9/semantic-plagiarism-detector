@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from core.verbatim_matcher import VerbatimMatcher
 
 MATCHER = VerbatimMatcher()

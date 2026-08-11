@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy.stats import norm
 
 from core.classify import Thresholds, Verdict, classify_fragment
 from core.similarity import CrossEncoderScorer, TfidfScorer
@@ -30,8 +31,6 @@ def confusion_matrix(y_true: list[str], y_pred: list[str]) -> np.ndarray:
         matrix[idx[t], idx[p.value]] += 1
     return matrix
 
-
-from scipy.stats import norm
 
 def print_confusion(matrix: np.ndarray) -> None:
     names = [label.value for label in LABELS]

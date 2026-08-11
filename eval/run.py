@@ -93,8 +93,17 @@ def run_approach(approach: str, paws_dev, paws_test, stsb, measure_lat: bool = T
 
 def print_table(rows: list[dict]) -> None:
     cols = [
-        "approach", "threshold", "accuracy", "precision", "recall", "f1", "roc_auc",
-        "spearman", "pearson", "latency_mean_ms", "latency_p95_ms",
+        "approach",
+        "threshold",
+        "accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "roc_auc",
+        "spearman",
+        "pearson",
+        "latency_mean_ms",
+        "latency_p95_ms",
     ]
     header = "| " + " | ".join(cols) + " |"
     print("\n" + header)
@@ -116,8 +125,7 @@ def main() -> None:
     paws_test = load_paws("test", limit=args.limit)
     stsb = load_stsb()
     print(
-        f"PAWS dev: {len(paws_dev.pairs)}, test: {len(paws_test.pairs)}, "
-        f"STS-B: {len(stsb.pairs)}"
+        f"PAWS dev: {len(paws_dev.pairs)}, test: {len(paws_test.pairs)}, STS-B: {len(stsb.pairs)}"
     )
 
     approaches = [args.approach] if args.approach else APPROACHES

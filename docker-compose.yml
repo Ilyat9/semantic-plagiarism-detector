@@ -10,8 +10,7 @@ services:
       PLAGCHECK_SEARCH_BACKEND: ${PLAGCHECK_SEARCH_BACKEND:-auto}
       PLAGCHECK_SEARXNG_URL: ${PLAGCHECK_SEARXNG_URL:-http://host.docker.internal:8080}
     volumes:
-      - plagcheck-cache:/app/data
-      - plagcheck-db:/app/data
+      - plagcheck-data:/app/data
 
   demo:
     build: .
@@ -25,9 +24,7 @@ services:
       PLAGCHECK_SEARCH_BACKEND: ${PLAGCHECK_SEARCH_BACKEND:-auto}
       PLAGCHECK_SEARXNG_URL: ${PLAGCHECK_SEARXNG_URL:-http://host.docker.internal:8080}
     volumes:
-      - plagcheck-cache:/app/data
-      - plagcheck-db:/app/data
+      - plagcheck-data:/app/data
 
 volumes:
-  plagcheck-cache:
-  plagcheck-db:
+  plagcheck-data:

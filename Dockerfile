@@ -2,7 +2,8 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/app/.cache/huggingface
 
 # Системные зависимости для WeasyPrint (pango/cairo)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,6 +22,10 @@ RUN .venv/bin/python -c "\
 from sentence_transformers import SentenceTransformer, CrossEncoder; \
 SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device='cpu'); \
 CrossEncoder('cross-encoder/stsb-roberta-base', device='cpu')"
+
+# Непривилегированный пользователь; /app/data — writable для sqlite-кэша и отчётов
+RUN useradd --create-home appuser && mkdir -p /app/data && chown -R appuser /app
+USER appuser
 
 EXPOSE 8000 8501
 

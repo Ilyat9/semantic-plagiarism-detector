@@ -21,7 +21,9 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync --no-dev
+        # Полный sync (включая dev-группу): ниже запускаются pytest и ruff.
+        # --no-dev здесь был бы самообманом — uv run всё равно дотягивал бы dev.
+        run: uv sync
 
       - name: Lint with ruff
         run: uv run ruff check .

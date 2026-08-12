@@ -9,9 +9,29 @@ from pathlib import Path
 from core.chunking import chunk_text
 from core.pipeline import ComparisonReport, Source, compare_document
 from core.query_gen import generate_queries
-from parsing.extract import extract_text
+from parsing.extract import SUPPORTED_EXTENSIONS, extract_text
 from scraping.fetch import fetch_page
 from scraping.search import SearchResult, search_phrases
+
+# Magic bytes для проверки, что содержимое соответствует заявленному расширению
+_MAGIC_BYTES = {
+    ".pdf": [b"%PDF"],
+    ".docx": [b"PK\x03\x04"],  # docx — zip-контейнер
+}
+
+
+def _validate_upload(filename: str, content: bytes) -> str:
+    """Проверяет расширение (whitelist) и magic bytes. Возвращает suffix."""
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        raise ValueError(
+            f"Неподдерживаемый формат: {suffix or '(без расширения)'}. "
+            f"Ожидается: {sorted(SUPPORTED_EXTENSIONS)}"
+        )
+    magics = _MAGIC_BYTES.get(suffix)
+    if magics and not any(content.startswith(m) for m in magics):
+        raise ValueError(f"Содержимое файла не соответствует формату {suffix}")
+    return suffix
 
 
 @dataclass
@@ -57,12 +77,18 @@ def run_check(file_path: str | Path, max_queries: int = 15) -> FullReport:
 
 
 def run_check_upload(filename: str, content: bytes, max_queries: int = 15) -> FullReport:
-    """Обёртка для загруженных файлов: сохраняет во временный файл и зовёт run_check."""
-    suffix = Path(filename).suffix.lower()
+    """Обёртка для загруженных файлов: сохраняет во временный файл и зовёт run_check.
+
+    Временный файл удаляется в finally — даже при ошибке парсинга/сети
+    содержимое документа не остаётся на диске.
+    """
+    suffix = _validate_upload(filename, content)
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(content)
         tmp_path = Path(tmp.name)
-    report = run_check(tmp_path, max_queries=max_queries)
+    try:
+        report = run_check(tmp_path, max_queries=max_queries)
+    finally:
+        tmp_path.unlink(missing_ok=True)
     report.filename = filename
-    tmp_path.unlink(missing_ok=True)
     return report

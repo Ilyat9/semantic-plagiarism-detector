@@ -32,8 +32,12 @@ def batched_score(scorer, pairs: list[tuple[str, str]], batch_size: int = 64) ->
 
 
 def best_f1_threshold(labels: np.ndarray, scores: np.ndarray) -> tuple[float, float]:
-    """Порог максимального F1 на валидационных данных (не на тесте!)."""
-    candidates = np.quantile(scores, np.linspace(0.05, 0.95, 50))
+    """Порог максимального F1 на валидационных данных (не на тесте!).
+
+    Кандидаты — уникальные значения скоров: сетка по квантилям не покрывала
+    хвосты распределения и могла выдать вырожденный порог (например 1.0).
+    """
+    candidates = np.unique(scores)
     best_t, best_f1 = 0.5, -1.0
     for t in candidates:
         f1 = f1_score(labels, scores >= t, zero_division=0)
@@ -70,14 +74,22 @@ def eval_stsb(scorer, stsb: PairDataset) -> dict:
 
 
 def measure_latency(scorer, pairs: list[tuple[str, str]], n: int = 30) -> dict:
-    """Среднее и p95 время скоринга одной пары на CPU, мс."""
+    """Среднее и p95 время скоринга одной пары на CPU, мс.
+
+    Каждая пара замеряется отдельно (batch_size=1), p95 — честный перцентиль
+    по per-pair таймингам, а не оценка от среднего.
+    """
     sample = pairs[:n]
     batched_score(scorer, sample[:2])  # прогрев
-    start = time.perf_counter()
-    batched_score(scorer, sample, batch_size=1)
-    total = time.perf_counter() - start
-    per_pair_ms = 1000.0 * total / len(sample)
-    return {"latency_mean_ms": round(per_pair_ms, 1), "latency_p95_ms": round(per_pair_ms * 1.3, 1)}
+    times_ms = []
+    for pair in sample:
+        start = time.perf_counter()
+        batched_score(scorer, [pair], batch_size=1)
+        times_ms.append(1000.0 * (time.perf_counter() - start))
+    return {
+        "latency_mean_ms": round(float(np.mean(times_ms)), 1),
+        "latency_p95_ms": round(float(np.percentile(times_ms, 95)), 1),
+    }
 
 
 def run_approach(approach: str, paws_dev, paws_test, stsb, measure_lat: bool = True) -> dict:
@@ -112,6 +124,44 @@ def print_table(rows: list[dict]) -> None:
         print("| " + " | ".join(str(row.get(c, "")) for c in cols) + " |")
 
 
+# Человекочитаемые названия подходов для README-таблицы
+_README_LABELS = {
+    "tfidf": "TF-IDF + cosine (baseline)",
+    "bi-minilm": "Bi-encoder MiniLM + cosine",
+    "bi-e5": "Bi-encoder E5-base + cosine",
+    "full": "Bi → Cross-encoder ms-marco",
+    "full-stsb": "Bi → Cross-encoder **stsb-roberta** (дефолт пайплайна)",
+    "full-ft": "Bi → Cross-encoder **stsb-roberta-ft**",
+}
+
+
+def print_readme_table(rows: list[dict], n_test: int, n_dev: int) -> None:
+    """Печатает строки в том же формате, что таблица ablation в README.
+
+    Нужно, чтобы перезамер сводился к копипасту: колонки и подписи совпадают
+    с README, никакого ручного переноса цифр между форматами.
+    """
+    print("\n--- вставить в README, раздел Evaluation ---\n")
+    print(
+        "| Подход | Порог | Acc | Precision | Recall | F1 | ROC-AUC "
+        "| STS-B Spearman | Latency/пара (mean / p95) |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|")
+    for row in rows:
+        label = _README_LABELS.get(row["approach"], row["approach"])
+        latency = (
+            f"{row['latency_mean_ms']} / {row['latency_p95_ms']} мс"
+            if "latency_mean_ms" in row
+            else "—"
+        )
+        print(
+            f"| {label} | {row['threshold']} | {row['accuracy']} | {row['precision']} "
+            f"| {row['recall']} | {row['f1']} | {row['roc_auc']} | {row['spearman']} | {latency} |"
+        )
+    stamp = time.strftime("%Y-%m-%d")
+    print(f"\n> Замер: {stamp}, PAWS test n={n_test}, dev n={n_dev}.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--approach", choices=APPROACHES, help="один подход; по умолчанию — все")
@@ -129,11 +179,17 @@ def main() -> None:
     )
 
     approaches = [args.approach] if args.approach else APPROACHES
-    rows = [
-        run_approach(a, paws_dev, paws_test, stsb, measure_lat=not args.no_latency)
-        for a in approaches
-    ]
+    rows = []
+    for a in approaches:
+        try:
+            rows.append(run_approach(a, paws_dev, paws_test, stsb, measure_lat=not args.no_latency))
+        except (OSError, ValueError) as exc:
+            # full-ft требует обученного чекпойнта (eval.finetune); без него
+            # остальные строки таблицы всё равно должны посчитаться.
+            print(f"[{a}] пропущен: {exc}", flush=True)
+
     print_table(rows)
+    print_readme_table(rows, n_test=len(paws_test.pairs), n_dev=len(paws_dev.pairs))
 
 
 if __name__ == "__main__":

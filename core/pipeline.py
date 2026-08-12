@@ -6,15 +6,15 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+import config
 from core.chunking import chunk_text
 from core.classify import Thresholds, Verdict, classify_fragment
-from core.similarity import BiEncoderScorer, CrossEncoderScorer, TfidfScorer
+from core.language import get_bi_encoder_name, get_cross_encoder_name
+from core.similarity import BiEncoderScorer, CrossEncoderScorer, JaccardScorer
 from core.verbatim_matcher import VerbatimMatcher
 
 VERBATIM_WEIGHT = 1.0
 PARAPHRASE_WEIGHT = 0.5
-
-MAX_SOURCE_CHUNKS = 150  # верхний лимит чанков на источник (скорость stage 1)
 
 
 @dataclass
@@ -66,14 +66,29 @@ def compare_document(
 
     Stage 1: би-энкодер, косинус по чанкам -> top-k кандидатов на чанк документа.
     Stage 2: кросс-энкодер перепроверяет кандидатов -> semantic score чанка.
-    Лексический скор — TF-IDF косинус с лучшим кандидатом.
+    Лексический скор — char n-gram Jaccard с лучшим кандидатом.
+
+    Если скореры не переданы, модели выбираются по языку документа
+    (кириллица -> multilingual би-/кросс-энкодер, иначе англоязычные дефолты).
+    Пороги откалиброваны на англоязычных моделях — multilingual вердикты
+    приблизительны.
     """
     thresholds = thresholds or Thresholds.load()
     doc_chunks = chunk_text(doc_text, window=window, overlap=overlap)
     reachable = [s for s in sources if s.text]
     unreachable = [s for s in sources if not s.text]
 
-    if not doc_chunks or not reachable:
+    # Чанкуем источники, помня URL каждого чанка
+    source_chunk_texts: list[str] = []
+    source_chunk_urls: list[str] = []
+    for src in reachable:
+        for ch in chunk_text(src.text, window=window, overlap=overlap)[: config.MAX_SOURCE_CHUNKS]:
+            source_chunk_texts.append(ch.text)
+            source_chunk_urls.append(src.url)
+
+    if not doc_chunks or not source_chunk_texts:
+        # Нечанкуемый документ, нет достижимых источников или источники
+        # не дали ни одного чанка -> всё original
         return ComparisonReport(
             similarity_percent=0.0,
             fragments=[
@@ -83,28 +98,29 @@ def compare_document(
             n_chunks=len(doc_chunks),
         )
 
-    bi_scorer = bi_scorer or BiEncoderScorer()
-    cross_scorer = cross_scorer or CrossEncoderScorer()
+    if bi_scorer is None:
+        bi_scorer = BiEncoderScorer(get_bi_encoder_name(text=doc_text))
+    if cross_scorer is None:
+        cross_scorer = CrossEncoderScorer(get_cross_encoder_name(text=doc_text))
     verbatim_matcher = VerbatimMatcher()
 
-    # Чанкуем источники, помня URL каждого чанка
-    source_chunk_texts: list[str] = []
-    source_chunk_urls: list[str] = []
-    for src in reachable:
-        for ch in chunk_text(src.text, window=window, overlap=overlap)[:MAX_SOURCE_CHUNKS]:
-            source_chunk_texts.append(ch.text)
-            source_chunk_urls.append(src.url)
-
-    # Pre-filter: near-duplicate detection (быстрый verbatim)
-    source_chunks_for_matcher = list(zip(source_chunk_urls, source_chunk_texts, strict=True))
+    # Pre-filter: near-duplicate detection (быстрый verbatim).
+    # Граммы источников считаются один раз, а не на каждый чанк документа.
+    source_grams = [
+        (url, verbatim_matcher.grams(t))
+        for url, t in zip(source_chunk_urls, source_chunk_texts, strict=True)
+    ]
     verbatim_flags: list[bool] = []
     verbatim_best_urls: list[str | None] = []
     for chunk in doc_chunks:
-        result = verbatim_matcher.check(chunk.text, source_chunks_for_matcher)
+        result = verbatim_matcher.check(chunk.text, [], source_grams=source_grams)
         verbatim_flags.append(result.is_duplicate)
         verbatim_best_urls.append(result.matched_source_url if result.is_duplicate else None)
 
-    # Stage 1: retrieval (только для чанков, не помеченных как verbatim)
+    # Stage 1: retrieval. Эмбеддинги/скоры считаются для всех чанков, включая
+    # помеченные verbatim — их результат ниже отбрасывается (вердикт уже дан).
+    # Оптимизация (пропустить verbatim-чанки) сознательно не делается: индексы
+    # в sim_matrix/cross_scores должны совпадать с doc_chunks.
     doc_emb = bi_scorer.encode([c.text for c in doc_chunks], is_query=True)
     src_emb = bi_scorer.encode(source_chunk_texts)
     sim_matrix = doc_emb @ src_emb.T  # [n_doc, n_src], эмбеддинги нормализованы
@@ -121,8 +137,7 @@ def compare_document(
     # Лексический скор против лучшего по кросс-энкодеру кандидата
     best_local = np.argmax(cross_scores, axis=1)
     best_src_idx = candidate_idx[np.arange(len(doc_chunks)), best_local]
-    tfidf = TfidfScorer()
-    lex_scores = tfidf.score_pairs(
+    lex_scores = JaccardScorer().score_pairs(
         [(doc_chunks[i].text, source_chunk_texts[best_src_idx[i]]) for i in range(len(doc_chunks))]
     )
 

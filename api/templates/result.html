@@ -31,13 +31,13 @@
     </div>
   </div>
 
-  {% set flagged = report.comparison.fragments | selectattr('verdict.value', 'ne', 'original') | list %}
+  {% set flagged = report.comparison.fragments | selectattr('verdict', 'ne', 'original') | list %}
   <h2 class="h5">Совпадающие фрагменты ({{ flagged|length }})</h2>
   {% if not flagged %}<p class="text-success">Совпадений не найдено — документ выглядит оригинальным.</p>{% endif %}
   {% for f in flagged %}
-  <div class="frag {{ f.verdict.value }} p-3 mb-3">
-    <span class="badge {{ 'bg-danger' if f.verdict.value == 'verbatim' else 'bg-warning text-dark' }}">
-      {{ f.verdict.value }}
+  <div class="frag {{ f.verdict }} p-3 mb-3">
+    <span class="badge {{ 'bg-danger' if f.verdict == 'verbatim' else 'bg-warning text-dark' }}">
+      {{ f.verdict }}
     </span>
     <span class="text-muted small">lex {{ '%.2f' % f.lexical }} · sem {{ '%.2f' % f.semantic }}</span>
     <p class="mb-1 mt-2">{{ f.chunk_text }}</p>

@@ -52,11 +52,11 @@
 
 <!-- Flagged fragments -->
 <h2>Flagged Fragments</h2>
-{% set flagged = report.comparison.fragments | selectattr('verdict.value', 'ne', 'original') | list %}
+{% set flagged = report.comparison.fragments | selectattr('verdict', 'ne', 'original') | list %}
 {% if not flagged %}<p>No matching fragments found.</p>{% endif %}
 {% for f in flagged %}
-<div class="frag {{ f.verdict.value }}">
-  <b class="{{ f.verdict.value }}">{{ f.verdict.value }}</b>
+<div class="frag {{ f.verdict }}">
+  <b class="{{ f.verdict }}">{{ f.verdict }}</b>
   <span style="color:#666;font-size:9pt;">(lex {{ '%.2f' % f.lexical }}, sem {{ '%.2f' % f.semantic }})</span>
   <p>{{ f.chunk_text }}</p>
   {% if f.source_url %}<p class="src">Source: {{ f.source_url }}</p>{% endif %}
@@ -69,9 +69,9 @@
 <table>
   <tr><th>#</th><th>Verdict</th><th>Text</th><th>Source</th></tr>
   {% for f in report.comparison.fragments %}
-  <tr class="{{ f.verdict.value }}">
+  <tr class="{{ f.verdict }}">
     <td>{{ f.chunk_index }}</td>
-    <td><b class="{{ f.verdict.value }}">{{ f.verdict.value }}</b></td>
+    <td><b class="{{ f.verdict }}">{{ f.verdict }}</b></td>
     <td>{{ f.chunk_text[:200] }}</td>
     <td class="src">{{ f.source_url or '—' }}</td>
   </tr>

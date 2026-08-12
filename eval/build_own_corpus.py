@@ -1,9 +1,15 @@
 """Построение собственного eval-корпуса: data/eval/pairs.jsonl.
 
-Для каждого базового текста создаются три пары:
+Для каждого базового текста создаются пары:
 - verbatim  — точная копия фрагмента;
-- paraphrase — перефраз (часть — вручную, 3 текста — через локальную LLM Ollama);
+- paraphrase — перефраз (большинство вручную, часть — через локальную LLM Ollama);
 - original  — несвязанный текст из другой темы.
+
+Дополнительно:
+- partial verbatim — 1 скопированное предложение + перефраз остальных (реалистичный
+  случай «verbatim в окружении оригинальных соседей», нужен для калибровки T1);
+- hard negatives — независимо написанный текст на ТУ ЖЕ тему (label=original):
+  «совсем другая тема» как негатив разделяется тривиально и неинформативна.
 
 Использование: python -m eval.build_own_corpus
 """
@@ -332,6 +338,76 @@ BASE_TEXTS: list[tuple[str, str, str | None]] = [
     ),
 ]
 
+# Для этих базовых текстов строится «частичный verbatim»: первое предложение
+# копируется дословно, остальные — перефраз (только для текстов с ручным перефразом)
+PARTIAL_VERBATIM_IDS = {
+    "photosynthesis",
+    "french_revolution",
+    "photosynthesis_deep",
+    "black_holes",
+    "vaccines",
+    "machine_learning",
+    "honeybees",
+    "dna_structure",
+    "climate_feedback",
+    "antibiotics",
+}
+
+# Hard negatives: независимо написанные тексты на ТУ ЖЕ тему, что и базовый
+# (другой аспект, без заимствования формулировок). label=original.
+HARD_NEGATIVES: dict[str, str] = {
+    "photosynthesis": (
+        "Photosynthesis takes place in the chloroplasts of leaf cells. "
+        "Its overall rate depends on light intensity, carbon dioxide concentration, "
+        "and temperature. Researchers measure a leaf's productivity by tracking gas exchange."
+    ),
+    "french_revolution": (
+        "Historians still debate whether the revolutionary violence was inevitable. "
+        "The Reign of Terror sent thousands to the guillotine. "
+        "Napoleon's coup of 1799 closed the revolutionary decade."
+    ),
+    "black_holes": (
+        "Astronomers study these objects indirectly, through their influence on nearby "
+        "matter. The first image of a black hole's shadow was released in 2019. "
+        "Supermassive black holes sit at the centers of most galaxies."
+    ),
+    "vaccines": (
+        "Herd immunity emerges when enough of a population is immunized to slow transmission. "
+        "Vaccine hesitancy has allowed measles outbreaks to resurge in several countries. "
+        "New mRNA platforms have shortened development timelines dramatically."
+    ),
+    "machine_learning": (
+        "Overfitting happens when a model memorizes training examples instead of generalizing. "
+        "Regularization techniques such as dropout help prevent it. "
+        "Cross-validation estimates performance on unseen data."
+    ),
+    "honeybees": (
+        "Colony collapse disorder has caused steep declines in bee populations. "
+        "Pesticide exposure and habitat loss are considered contributing factors. "
+        "Beekeepers report losing a third of their hives in bad years."
+    ),
+    "dna_structure": (
+        "The cost of genome sequencing has fallen faster than Moore's law. "
+        "Modern instruments read billions of fragments in parallel. "
+        "What took the Human Genome Project thirteen years now fits in a single day."
+    ),
+    "antibiotics": (
+        "Hospital-acquired infections are frequently resistant to multiple drugs. "
+        "Researchers are exploring bacteriophages as an alternative therapy. "
+        "The discovery of new antibiotic classes has slowed to a trickle."
+    ),
+    "quantum_computing": (
+        "Quantum error correction remains the central obstacle to practical machines. "
+        "A single logical qubit requires many physical qubits working together. "
+        "Recent prototypes have pushed error rates below key fault-tolerance thresholds."
+    ),
+    "roman_law": (
+        "Medieval scholars rediscovered Justinian's digest in the eleventh century. "
+        "Law schools in Bologna built their curriculum around it. "
+        "Its concepts of property and contract still echo in modern legal codes."
+    ),
+}
+
 # Тексты-«чужие» для original-пар (тематически не пересекаются)
 UNRELATED: list[tuple[str, str]] = [
     (
@@ -409,6 +485,13 @@ UNRELATED: list[tuple[str, str]] = [
 ]
 
 
+def _sentences(text: str) -> list[str]:
+    """Наивное разбиение на предложения (корпусные тексты без сложной пунктуации)."""
+    import re
+
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+
+
 def llm_paraphrase(text: str) -> str:
     """Перефраз через локальную LLM (Ollama). Промпт: перепиши своими словами."""
     import httpx
@@ -452,10 +535,34 @@ def main() -> None:
                 "origin": origin,
             }
         )
+        if text_id in PARTIAL_VERBATIM_IDS and manual:
+            base_sents, para_sents = _sentences(base), _sentences(manual)
+            partial = " ".join([base_sents[0], *para_sents[1:]])
+            rows.append(
+                {
+                    "id": f"{text_id}-partial-verbatim",
+                    "text_a": base,
+                    "text_b": partial,
+                    "label": "verbatim",
+                    "origin": "partial",
+                }
+            )
 
     for (base_id, base, _), (unrel_id, unrel) in zip(BASE_TEXTS, UNRELATED * 3, strict=False):
         rows.append(
             {"id": f"{base_id}-vs-{unrel_id}", "text_a": base, "text_b": unrel, "label": "original"}
+        )
+
+    base_by_id = {text_id: base for text_id, base, _ in BASE_TEXTS}
+    for base_id, negative in HARD_NEGATIVES.items():
+        rows.append(
+            {
+                "id": f"{base_id}-vs-hard-negative",
+                "text_a": base_by_id[base_id],
+                "text_b": negative,
+                "label": "original",
+                "origin": "hard-negative",
+            }
         )
 
     with OUT_PATH.open("w", encoding="utf-8") as f:

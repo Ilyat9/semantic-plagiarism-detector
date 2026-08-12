@@ -9,7 +9,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 DB_PATH = Path("data/reports.db")
@@ -103,34 +103,6 @@ def get_report(report_uuid: str):
         }
 
 
-def list_reports(limit: int = 20, offset: int = 0):
-    """Список отчётов с пагинацией."""
-    init_db()
-    with Session(get_engine()) as session:
-        rows = (
-            session.query(ReportModel)
-            .order_by(ReportModel.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-            .all()
-        )
-        return [
-            {
-                "report_uuid": r.report_uuid,
-                "filename": r.filename,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-                "n_words": r.n_words,
-                "n_chunks": r.n_chunks,
-                "similarity_percent": (
-                    json.loads(r.comparison_json).get("similarity_percent", 0.0)
-                    if r.comparison_json
-                    else 0.0
-                ),
-            }
-            for r in rows
-        ]
-
-
 def get_report_full(report_uuid: str):
     """Возвращает данные отчёта для рендеринга (dict-like объект)."""
     data = get_report(report_uuid)
@@ -151,12 +123,3 @@ def get_report_full(report_uuid: str):
     if hasattr(ns, "comparison") and ns.comparison:
         ns.comparison = _to_ns(ns.comparison)
     return ns
-
-
-def count_reports() -> int:
-    init_db()
-    with Session(get_engine()) as session:
-        return session.query(func.count(ReportModel.id)).scalar() or 0
-    init_db()
-    with Session(get_engine()) as session:
-        return session.query(func.count(ReportModel.id)).scalar() or 0

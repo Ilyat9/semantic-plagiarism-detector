@@ -5,10 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
+import config
 import db
 from api.ratelimit import RateLimitMiddleware
 from core.service import run_check_upload
@@ -25,10 +26,22 @@ async def index():
 
 
 @app.post("/check", response_class=HTMLResponse)
-async def check(file: Annotated[UploadFile, File()]):
-    content = await file.read()
+def check(request: Request, file: Annotated[UploadFile, File()]):
+    """Принимает документ и запускает проверку.
+
+    Эндпоинт намеренно синхронный (def, а не async def): пайплайн проверки —
+    блокирующий (сеть, скрапинг, CPU-инференс на 1–3 минуты), и FastAPI уводит
+    его в threadpool, не блокируя event loop.
+    """
+    # Ранний отказ по Content-Length, чтобы не читать заведомо большие файлы
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > config.MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Файл слишком большой")
+    content = file.file.read(config.MAX_UPLOAD_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Пустой файл")
+    if len(content) > config.MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Файл слишком большой")
     try:
         report = run_check_upload(file.filename or "document", content)
     except ValueError as exc:
@@ -39,7 +52,9 @@ async def check(file: Annotated[UploadFile, File()]):
 
 
 @app.get("/report/{report_id}.pdf")
-async def report_pdf(report_id: str):
+def report_pdf(report_id: str):
+    """PDF-отчёт по id. report_id — bearer-идентификатор: ссылку видит только
+    тот, кому её показали после проверки (публичного листинга отчётов нет)."""
     report = db.get_report_full(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Отчёт не найден")
@@ -49,14 +64,3 @@ async def report_pdf(report_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="report-{report_id}.pdf"'},
     )
-
-
-@app.get("/reports")
-async def list_reports(limit: int = 20, offset: int = 0):
-    """Список проверенных документов с пагинацией."""
-    return {
-        "total": db.count_reports(),
-        "limit": limit,
-        "offset": offset,
-        "items": db.list_reports(limit=limit, offset=offset),
-    }

@@ -13,7 +13,11 @@ class PairDataset:
 
 
 def load_paws(split: str = "test", limit: int | None = None) -> PairDataset:
-    """PAWS labeled_final: label 1 = перефраз. Сплиты: train/validation/test."""
+    """PAWS labeled_final: label 1 = перефраз. Сплиты: train/validation/test.
+
+    limit берёт ПЕРВЫЕ limit записей сплита (детерминированно, без shuffle) —
+    воспроизводимость важнее случайности; в README это указано явно.
+    """
     from datasets import load_dataset
 
     ds = load_dataset("google-research-datasets/paws", "labeled_final", split=split)

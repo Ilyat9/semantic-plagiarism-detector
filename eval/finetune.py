@@ -63,12 +63,18 @@ def finetune(
         show_progress_bar=True,
     )
 
+    # fit() в новых версиях sentence-transformers не сохраняет финальную модель
+    # в output_path — сохраняем явно (иначе каталог остаётся пустым).
+    model.save(str(output_dir))
     print(f"Fine-tuned модель сохранена: {output_dir}", flush=True)
     return output_dir
 
 
 def evaluate_finetuned(model_path: Path) -> dict:
     """Оценивает fine-tuned модель на PAWS test + STS-B."""
+    import numpy as np
+
+    from core.similarity import CrossEncoderScorer
     from eval.datasets import load_paws
 
     print("\nОценка fine-tuned модели...", flush=True)
@@ -76,19 +82,21 @@ def evaluate_finetuned(model_path: Path) -> dict:
     paws_test = load_paws("test", limit=2000)
     stsb = load_stsb()
 
-    # Создаём скорер для fine-tuned модели
-    def scorer(pairs: list[tuple[str, str]]):
-        model = CrossEncoder(str(model_path), device="cpu")
-        raw = model.predict(pairs)
-        # stsb-roberta → уже [0, 1]
-        import numpy as np
+    # Модель загружается ОДИН раз (раньше грузилась заново на каждый батч —
+    # ~1 с на roberta-base, что делало заявленную latency недостижимой).
+    # Нормализация — та же, что в продакшене (CrossEncoderScorer): после fit()
+    # с дефолтным BCEWithLogitsLoss голова выдаёт логиты -> sigmoid, а не clip.
+    ce_scorer = CrossEncoderScorer(str(model_path))
 
-        return np.clip(np.asarray(raw, dtype=float), 0.0, 1.0)
+    # Контроль диапазона сырых выходов (урок из failure analysis #3):
+    # перед нормализацией проверяем, что модель выдаёт то, что мы ожидаем.
+    raw = np.asarray(ce_scorer._model.predict(paws_test.pairs[:50]), dtype=float)
+    print(f"Сырые выходы predict() на 50 парах: min={raw.min():.3f}, max={raw.max():.3f}")
 
     row = {"approach": "full-ft"}
-    row.update(eval_binary(scorer, paws_dev, paws_test))
-    row.update(eval_stsb(scorer, stsb))
-    row.update(measure_latency(scorer, paws_test.pairs))
+    row.update(eval_binary(ce_scorer.score_pairs, paws_dev, paws_test))
+    row.update(eval_stsb(ce_scorer.score_pairs, stsb))
+    row.update(measure_latency(ce_scorer.score_pairs, paws_test.pairs))
     return row
 
 

@@ -13,7 +13,7 @@ import numpy as np
 from scipy.stats import norm
 
 from core.classify import Thresholds, Verdict, classify_fragment
-from core.similarity import CrossEncoderScorer, TfidfScorer
+from core.similarity import CrossEncoderScorer, JaccardScorer
 from eval.run import batched_score
 
 LABELS = [Verdict.VERBATIM, Verdict.PARAPHRASE, Verdict.ORIGINAL]
@@ -61,7 +61,8 @@ def main() -> None:
     print(f"Корпус: {len(pairs)} пар. Пороги: {thresholds}")
 
     sem_scores = batched_score(CrossEncoderScorer().score_pairs, pairs)
-    lex_scores = batched_score(TfidfScorer().score_pairs, pairs)
+    # Лексический скор — тот же, что в продакшен-пайплайне (char n-gram Jaccard)
+    lex_scores = JaccardScorer().score_pairs(pairs)
     y_pred = [
         classify_fragment(float(lex), float(sem), thresholds)
         for lex, sem in zip(lex_scores, sem_scores, strict=True)

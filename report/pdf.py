@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+from typing import Any, Protocol, runtime_checkable
+
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from core.service import FullReport
+
+@runtime_checkable
+class ReportLike(Protocol):
+    """Структурный тип отчёта для рендеринга.
+
+    Удовлетворяют и core.service.FullReport (живой dataclass, Streamlit/свежая
+    проверка), и объект, восстановленный из БД (db.get_report_full): шаблону
+    нужны только эти поля.
+    """
+
+    filename: str
+    n_words: int
+    n_chunks: int
+    queries: list[str]
+    comparison: Any
 
 
 def _env() -> Environment:
@@ -14,8 +30,8 @@ def _env() -> Environment:
     )
 
 
-def render_pdf(report: FullReport) -> bytes:
-    """Рендерит FullReport в PDF-байты."""
+def render_pdf(report: ReportLike) -> bytes:
+    """Рендерит отчёт в PDF-байты."""
     from weasyprint import HTML
 
     html = _env().get_template("report.html").render(report=report)

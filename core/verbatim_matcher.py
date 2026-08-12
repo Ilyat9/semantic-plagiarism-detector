@@ -13,7 +13,7 @@ from dataclasses import dataclass
 _NORM_RE = re.compile(r"[^\w\s]")
 
 
-def _char_ngrams(text: str, n: int = 5) -> set[str]:
+def char_ngrams(text: str, n: int = 5) -> set[str]:
     """Извлекает character n-gram из нормализованного текста."""
     text = _NORM_RE.sub("", text.lower())
     text = " ".join(text.split())  # collapse whitespace
@@ -41,27 +41,36 @@ class VerbatimMatcher:
         self._n = n
         self._threshold = threshold
 
-    def _grams(self, text: str) -> set[str]:
-        return _char_ngrams(text, self._n)
+    def grams(self, text: str) -> set[str]:
+        return char_ngrams(text, self._n)
 
-    def check(self, doc_chunk: str, source_chunks: list[tuple[str, str]]) -> NearDuplicateResult:
+    def check(
+        self,
+        doc_chunk: str,
+        source_chunks: list[tuple[str, str]],
+        source_grams: list[tuple[str, set[str]]] | None = None,
+    ) -> NearDuplicateResult:
         """Сравнивает чанк документа с чанками источников.
 
         Args:
             doc_chunk: текст чанка документа
             source_chunks: список (url, text) чанков источников
+            source_grams: опционально предпосчитанные (url, n-grams) — при
+                проверке многих чанков документа против одних и тех же источников
+                граммы строятся один раз, а не на каждый чанк (было O(n_doc × n_src))
 
         Returns:
             NearDuplicateResult с флагом дубликата и лучшим Jaccard
         """
-        doc_grams = self._grams(doc_chunk)
+        if source_grams is None:
+            source_grams = [(url, self.grams(t)) for url, t in source_chunks]
+        doc_grams = self.grams(doc_chunk)
         if not doc_grams:
             return NearDuplicateResult(False, 0.0)
 
         best_jaccard = 0.0
         best_url = None
-        for url, src_text in source_chunks:
-            src_grams = self._grams(src_text)
+        for url, src_grams in source_grams:
             if not src_grams:
                 continue
             intersection = len(doc_grams & src_grams)

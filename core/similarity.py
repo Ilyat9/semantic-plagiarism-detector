@@ -1,10 +1,12 @@
-"""Скореры сходства текстов: TF-IDF бейзлайн, би-энкодер, кросс-энкодер."""
+"""Скореры сходства текстов: лексический (char n-gram Jaccard), би-энкодер, кросс-энкодер."""
 
 from __future__ import annotations
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+from core.verbatim_matcher import char_ngrams
 
 BI_ENCODER_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
 BI_ENCODER_E5 = "intfloat/e5-base-v2"
@@ -14,8 +16,35 @@ CROSS_ENCODER_STSB = "cross-encoder/stsb-roberta-base"
 CROSS_ENCODER_FINE_TUNED = "data/models/cross-encoder-paws-finetuned"
 
 
+class JaccardScorer:
+    """Лексическое сходство: character 5-gram Jaccard (как в VerbatimMatcher).
+
+    Батч-независимый: скор пары не зависит от того, с какими ещё парами она
+    передана (в отличие от TF-IDF, где IDF фитится на батче — одна и та же пара
+    давала разброс до 36% в зависимости от состава батча). Поэтому именно этот
+    скорер используется в продакшен-пайплайне и при калибровке T1.
+    """
+
+    def __init__(self, n: int = 5):
+        self._n = n
+
+    def score_pairs(self, pairs: list[tuple[str, str]]) -> np.ndarray:
+        """Jaccard-сходство для списка пар (a, b) -> [n]."""
+        scores = []
+        for a, b in pairs:
+            ga, gb = char_ngrams(a, self._n), char_ngrams(b, self._n)
+            union = len(ga | gb)
+            scores.append(len(ga & gb) / union if union else 0.0)
+        return np.asarray(scores)
+
+
 class TfidfScorer:
-    """Лексическое сходство: TF-IDF (1,2)-граммы + косинус."""
+    """Лексическое сходство: TF-IDF (1,2)-граммы + косинус.
+
+    NB: векторизатор фитится на переданном батче (IDF зависит от состава
+    батча), поэтому скоры сравнимы только внутри одного прогона. Используется
+    как baseline-строка в ablation (eval/run.py); в продакшене — JaccardScorer.
+    """
 
     def __init__(self, max_features: int = 5000):
         self._vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=max_features)
@@ -90,22 +119,24 @@ def get_cross_encoder(model_name: str = DEFAULT_CROSS_ENCODER):
 class CrossEncoderScorer:
     """Точная перепроверка пар: кросс-энкодер -> скор [0, 1].
 
-    Учитывает разницу в выходах моделей: ms-marco выдаёт неограниченные логиты
-    (нужен sigmoid), stsb-roberta обучена выдавать сходство уже в [0, 1]
-    (sigmoid поверх неё разрушил бы калибровку).
+    predict() sentence-transformers сам применяет активацию из конфига модели:
+    Identity для retrieval-моделей (ms-marco -> логиты, нужен sigmoid) и
+    Sigmoid для stsb-roberta и fine-tuned чекпойнтов (уже вероятности).
+    Определяем случай по model.activation_fn, а не по имени модели — иначе
+    sigmoid поверх sigmoid'а сжимает скоры в 0.5–0.73 и убивает разделение
+    (см. failure analysis #3 в README).
     """
 
-    # Модели, чьи выходы уже нормированы в [0, 1]
-    _PRENORMALIZED = {CROSS_ENCODER_STSB}
-
     def __init__(self, model_name: str = DEFAULT_CROSS_ENCODER):
+        from torch import nn
+
         self._model = get_cross_encoder(model_name)
-        self._prenormalized = model_name in self._PRENORMALIZED
+        self._needs_sigmoid = isinstance(self._model.activation_fn, nn.Identity)
 
     def score_pairs(self, pairs: list[tuple[str, str]]) -> np.ndarray:
         if not pairs:
             return np.array([])
         raw = np.asarray(self._model.predict(pairs), dtype=float)
-        if self._prenormalized:
-            return np.clip(raw, 0.0, 1.0)
-        return 1.0 / (1.0 + np.exp(-raw))
+        if self._needs_sigmoid:
+            raw = 1.0 / (1.0 + np.exp(-raw))
+        return np.clip(raw, 0.0, 1.0)
